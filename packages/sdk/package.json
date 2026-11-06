@@ -1,6 +1,6 @@
 {
   "name": "@briq-cloud/sdk",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "The TypeScript client for briq's REST API: run databases, sandboxes and any OCI image for your agents.",
   "keywords": ["briq", "sdk", "agents", "sandbox", "postgres", "database", "api-client"],
   "homepage": "https://briq.cloud",

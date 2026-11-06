@@ -39,6 +39,13 @@ or 504, so it makes its briqs once.
 
 ## Errors
 
+`create` takes a `size` for that sandbox: `'small'` (the default), `'medium'`, `'large'` or `'xlarge'`
+(`SandboxSize`), as long as your plan offers it. Any other value throws `unsupported` before a request.
+
+```ts
+const { id } = await sandbox.create({ labels: {}, size: 'medium' });
+```
+
 A refusal throws `BriqApiError` with `status`, `code`, `message` and `requestId`.
 
 ```ts
@@ -74,7 +81,7 @@ await sandbox.destroy(id);
 
 A refusal throws `BriqOperationError` with a `code` (`auth`, `not_found`, `quota`, `timeout`…).
 Also exported: `fail`, `files`, `runArgv` and the types `Command`, `CommandResult`, `OutputChunk`,
-`FileInfo`, `NativeFiles`, `NativeOptions`, `CreateInput`, `ExecInput` and `OperationCode`.
+`FileInfo`, `NativeFiles`, `NativeOptions`, `CreateInput`, `ExecInput`, `SandboxSize` and `OperationCode`.
 `CommandResult` is what `runArgv` returns. `ExecResult` is what the client's `exec` returns.
 
 ## Options

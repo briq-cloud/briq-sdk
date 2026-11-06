@@ -95,6 +95,37 @@ it('creates at the configured size and refuses it when the quota does not offer 
   });
   await expect(eager.create({ labels: {} })).rejects.toMatchObject({ code: 'unsupported' });
 });
+it.each(['small', 'medium', 'large', 'xlarge'] as const)(
+  'creates one sandbox at size %s',
+  async (size) => {
+    const f = fixture();
+    const lean = nativeSandbox({
+      apiKey: 'fixture',
+      baseUrl: 'https://api.test',
+      fetch: f.http,
+      eagerChecks: false,
+    });
+    await lean.create({ labels: {}, size });
+    expect(f.calls[0].body).toMatchObject({ spec: { size } });
+  },
+);
+it('refuses a valid size the quota does not offer', async () => {
+  const f = fixture();
+  await expect(f.provider.create({ labels: {}, size: 'medium' })).rejects.toMatchObject({
+    code: 'unsupported',
+  });
+  expect(f.calls.map((c) => `${c.method} ${c.path}`)).toEqual(['GET /v1/quota']);
+});
+it.each(['xs', '2xl', 'nano', '', 'unknown', 3])(
+  'refuses size %j as unsupported before any request',
+  async (size) => {
+    const f = fixture();
+    await expect(f.provider.create({ labels: {}, size: size as never })).rejects.toMatchObject({
+      code: 'unsupported',
+    });
+    expect(f.calls).toHaveLength(0);
+  },
+);
 it('with eagerChecks false still reads quota when literal environment secrets are sent', async () => {
   const f = fixture();
   const lean = nativeSandbox({

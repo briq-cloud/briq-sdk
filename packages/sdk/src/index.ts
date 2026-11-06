@@ -26,7 +26,13 @@ export type { FileInfo, NativeFiles } from './native-files.js';
 export { runArgv } from './native-exec.js';
 export type { Command, CommandResult, OutputChunk } from './native-command.js';
 export { nativeSandbox } from './native-sandbox.js';
-export type { CreateInput, ExecInput, Labels, NativeOptions } from './native-sandbox.js';
+export type {
+  CreateInput,
+  ExecInput,
+  Labels,
+  NativeOptions,
+  SandboxSize,
+} from './native-sandbox.js';
 
 export interface RunResult {
   briqs: BriqRecord[];

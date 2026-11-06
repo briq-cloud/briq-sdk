@@ -3,6 +3,9 @@ import { BriqOperationError, fail, safe, statusCode } from './native-errors.js';
 import { type OutputChunk, runArgv } from './native-exec.js';
 import { files } from './native-files.js';
 import { runHttp, viaHttp } from './native-rest-exec.js';
+/** The sizes `create` accepts per sandbox, smallest first. */
+export type SandboxSize = 'small' | 'medium' | 'large' | 'xlarge';
+const SANDBOX_SIZES: readonly string[] = ['small', 'medium', 'large', 'xlarge'];
 export interface NativeOptions {
   apiKey: string;
   baseUrl?: string;
@@ -29,6 +32,11 @@ export interface CreateInput {
   network?: unknown;
   signal?: AbortSignal;
   ports?: number[];
+  /**
+   * The size of this sandbox: one of `SandboxSize`. Typed `unknown` so an adapter can pass what its
+   * caller gave; any other value is refused as `unsupported` before a request. Default: the `size`
+   * option.
+   */
   size?: unknown;
   idleTimeoutMs?: number;
   timeoutMs?: number;
@@ -241,9 +249,12 @@ export function nativeSandbox(options: NativeOptions) {
     keyMode: 'best-effort',
     capabilities: new Set<never>(),
     async create(input: CreateInput) {
-      for (const field of ['size', 'idleTimeoutMs', 'timeoutMs', 'from'] as const)
+      for (const field of ['idleTimeoutMs', 'timeoutMs', 'from'] as const)
         if (input[field] !== undefined)
           throw fail('unsupported', `Briq cannot enforce requested ${field}`);
+      if (input.size !== undefined && !SANDBOX_SIZES.includes(input.size as string))
+        throw fail('unsupported', 'Briq cannot enforce requested size');
+      const size = (input.size ?? SIZE) as SandboxSize | 'nano';
       if (input.network !== undefined && input.network !== 'all')
         throw fail('unsupported', 'Briq cannot enforce the requested network policy');
       if (input.signal?.aborted) throw fail('aborted', 'Creation cancelled before request');
@@ -258,8 +269,8 @@ export function nativeSandbox(options: NativeOptions) {
           throw fail('unsupported', 'API does not support literal encrypted environments');
         if (quota.features?.briqLabels !== true)
           throw fail('unsupported', 'Briq API does not declare persisted label support');
-        if (!quota.availableSizes?.includes(SIZE))
-          throw fail('unsupported', 'The configured Briq size is unavailable');
+        if (!quota.availableSizes?.includes(size))
+          throw fail('unsupported', 'The requested Briq size is unavailable');
       }
       if (input.signal?.aborted) throw fail('aborted', 'Creation cancelled before request');
       const name = input.name ?? `oc-${crypto.randomUUID().replaceAll('-', '').slice(0, 24)}`;
@@ -272,7 +283,7 @@ export function nativeSandbox(options: NativeOptions) {
         spec: {
           name,
           image: SUPPORTED_IMAGE,
-          size: SIZE,
+          size,
           cmd: ['sh', '-c', 'mkdir -p /workspace && exec sleep infinity'],
           env,
           ports: input.ports ?? [],
