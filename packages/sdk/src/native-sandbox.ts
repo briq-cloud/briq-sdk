@@ -9,6 +9,10 @@ const SANDBOX_SIZES: readonly string[] = ['small', 'medium', 'large', 'xlarge'];
 export interface NativeOptions {
   apiKey: string;
   baseUrl?: string;
+  /**
+   * Default none: each sandbox gets its own network, is placed on its own, and cannot reach the
+   * others by name. A stack puts them on one network, which is on one host.
+   */
   stack?: string;
   fetch?: typeof fetch;
   image?: string;
@@ -141,11 +145,12 @@ export function nativeSandbox(options: NativeOptions) {
   )
     throw fail('invalid_argument', 'API URL must be an HTTP(S) origin');
   const origin = base.origin;
-  const stack = options.stack ?? 'opencore';
+  const stack = options.stack;
   if (
-    !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(stack) ||
-    stack.length > 32 ||
-    stack === 'briq-credential-gateway'
+    stack !== undefined &&
+    (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(stack) ||
+      stack.length > 32 ||
+      stack === 'briq-credential-gateway')
   )
     throw fail('invalid_argument', 'Invalid Briq stack');
   const http: typeof fetch = (url, init) =>
@@ -233,7 +238,7 @@ export function nativeSandbox(options: NativeOptions) {
       ...(input.signal ? { signal: input.signal } : {}),
     });
   const list = async (labels: Labels) => {
-    const rows = (await safe(() => client.list({ stack }))).briqs;
+    const rows = (await safe(() => client.list(stack ? { stack } : {}))).briqs;
     return rows
       .filter(
         (row) =>

@@ -544,3 +544,61 @@ it('a collector that throws ends the call as on the stream', async () => {
     }),
   ).rejects.toMatchObject({ code: 'provider' });
 });
+
+function listing(options: { stack?: string } = {}) {
+  const urls: URL[] = [];
+  const bodies: Array<Record<string, unknown>> = [];
+  const mine = (id: string, marker: string) => ({
+    id,
+    name: id,
+    image: 'ghcr.io/briq-cloud/sandbox:latest',
+    labels: { [marker]: '1' },
+    state: 'running',
+    createdAt: '2026-11-02T00:00:00.000Z',
+    teamId: 'tm_owned',
+  });
+  const http = vi.fn<typeof fetch>(async (url, init) => {
+    const target = new URL(String(url));
+    urls.push(target);
+    if (target.pathname === '/v1/quota')
+      return Response.json({
+        features: { briqLabels: true },
+        availableSizes: ['small'],
+        team: { id: 'tm_owned' },
+      });
+    if (init?.method === 'POST') {
+      const body = JSON.parse(String(init.body));
+      bodies.push(body);
+      return Response.json({ briqs: [{ ...mine('bq_new', 'mark'), ...body.spec, id: 'bq_new' }] });
+    }
+    return Response.json({ briqs: [mine('bq_mine', 'mark'), mine('bq_other', 'other')] });
+  });
+  return {
+    provider: nativeSandbox({
+      apiKey: 'fixture',
+      baseUrl: 'https://api.test',
+      fetch: http,
+      marker: 'mark',
+      eagerChecks: false,
+      ...options,
+    }),
+    urls,
+    bodies,
+  };
+}
+
+it('sends no stack by default and finds its sandboxes by their marker', async () => {
+  const f = listing();
+  await f.provider.create({ labels: {} });
+  expect(f.bodies[0]).not.toHaveProperty('stack');
+  expect((await f.provider.list({})).map((row) => row.id)).toEqual(['bq_mine']);
+  expect(f.urls.at(-1)?.search).toBe('');
+});
+
+it('uses a stack when one is set', async () => {
+  const f = listing({ stack: 'agents' });
+  await f.provider.create({ labels: {} });
+  expect(f.bodies[0]?.stack).toBe('agents');
+  await f.provider.list({});
+  expect(f.urls.at(-1)?.searchParams.get('stack')).toBe('agents');
+});
